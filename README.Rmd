@@ -1,0 +1,57 @@
+---
+title: "Monte Carlo analysis of Bitcoin"
+author: "Lukas Läderach"
+output: html_notebook
+---
+# Abstract
+This document describes the process of modeling a bitcoin monte carlo chart.
+
+# Prerequisites
+To follow along this notebook make sure you have the following R-Packages installed globally.
+
+```{r}
+# Get millions of financial and economic datasets from hundreds of publishers directly into R.
+install.packages("Quandl")
+# ggplot2 is a plotting system for R, based on the grammar of graphics.
+install.packages("ggplot2")
+```
+
+Once those packages are installed import them into your current workspace and set your Quandl API-Key (You have to create an account at [Quandl](https://www.quandl.com/sign-up-modal?defaultModal=showSignUp)).
+
+```{r}
+library(Quandl)
+library(ggplot2)
+
+Quandl.api_key("CYyznmeKqzV2GxrHZMxD")
+```
+
+Once everthing is set up correctly you should be able retrieve financial data via Quandl.
+
+For example the following statement will retrieve all the BTC/USD starting from 2017-12-31 to the very recent.
+
+```{r}
+data <- Quandl("BITFINEX/BTCUSD", start_date="2017-12-31")
+head(data)
+```
+
+To generate a plot visualizing the closing price according to it's date (column labeled *Last*) we can specify which columns to retrieve via the column_index parameter (0 is always the *Date* column). To specifiy multiple columns we can also create a vector e.g. *c(4,6)* - this would return a table containing the *Date*, *Last* and *Ask* columns only.
+
+```{r}
+data <- Quandl("BITFINEX/BTCUSD", start_date="2011-12-31", column_index=4)
+qplot(Date, Last, data=data, geom="line")
+```
+
+
+# Introduction
+
+# Methods
+
+# Results
+
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+head(Quandl("BITFINEX/BTCUSD", start_date="2017-12-31"), column_index=4)
