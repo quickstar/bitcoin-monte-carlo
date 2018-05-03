@@ -6,11 +6,12 @@ output: html_notebook
 # Abstract
 This document describes the process of modeling a bitcoin monte carlo chart.
 
+
 # Prerequisites
-To follow along this notebook make sure you have the following R-Packages installed globally.
+To follow along this notebook make sure the following R-Packages are installed globally.
 
 ```{r}
-# Get millions of financial and economic datasets from hundreds of publishers directly into R.
+# Quandl - Get millions of financial and economic datasets from hundreds of publishers directly into R.
 install.packages("Quandl")
 # ggplot2 is a plotting system for R, based on the grammar of graphics.
 install.packages("ggplot2")
@@ -38,20 +39,69 @@ To generate a plot visualizing the closing price according to it's date (column 
 
 ```{r}
 data <- Quandl("BITFINEX/BTCUSD", start_date="2011-12-31", column_index=4)
-qplot(Date, Last, data=data, geom="line")
+gg <- ggplot(data, aes(Date, Last)) +
+  geom_line() +
+  geom_smooth(method = "lm") +
+  labs(title="Bitcoin price",
+       y="Closing price in USD",
+       caption="Source: bitfinex")
+plot(gg)
 ```
 
 
 # Introduction
 
+## Brownian Motion
+**Main Idea** - There are two parts to random movement
+  
+  * Deterministic Component, known as Drift
+  * Stochastic Component, known as Random Shock
+
+```
+Future Price = Today's Price * Continuous Growth over time + The volatility of People randomly trading over time
+```
+
+```{R}
+gg = Quandl("BITFINEX/BTCUSD", start_date="2011-12-31", transform = "rdiff")
+lmtRets = gg$Last
+mu = mean(lmtRets) # also knwon as Drift
+sigma = sd(lmtRets)
+
+nSim = 1000
+nDays = 365
+S0 <- head(Quandl("BITFINEX/BTCUSD", start_date="2018-5-1"), n=1)$Last
+S = matrix(0,nrow=nDays,ncol=nSim)
+
+for (i in 1:nSim) {
+  SVec = rep(0, nDays)
+  SVec[1] = S0
+  for(j in 2:nDays) {
+    pastDay = SVec[j-1]
+    DeltaS = mu*pastDay + sigma*pastDay*rnorm(1)
+    SVec[j] = pastDay+DeltaS
+  }
+  S[,i] = SVec
+}
+matplot(S, type='l',col=rgb(0,0,1,0.3), lty=1,ylab="", main="Simulation Price of Bitcoin")
+
+lnMean = S0*exp(mu*nDays)
+lnSD = S0*exp(mu*nDays)*sqrt(exp((sigma^2)*nDays)-1)
+cat(lnMean,mean(S[nDays,]))
+cat(lnSD,sd(S[nDays,]))
+
+meanOfLog = log(S0) + (mu-(sigma^2)/2)*nDays
+sdOfLog = sigma*sqrt(nDays)
+priceGrid = seq(0,lnMean+6*lnSD,length=10000)
+theoreticalDens = dlnorm(priceGrid,meanOfLog,sdOfLog)
+empiricalDens = density(S[nDays,])
+
+plot(priceGrid,theoreticalDens,type='l',xlab='Prices',ylab='Density')
+lines(empiricalDens,col='blue')
+```
+
+
+## Drift
+
 # Methods
 
 # Results
-
-
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
-
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
-
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
-head(Quandl("BITFINEX/BTCUSD", start_date="2017-12-31"), column_index=4)
