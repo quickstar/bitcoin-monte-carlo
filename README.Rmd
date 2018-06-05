@@ -1,7 +1,9 @@
 ---
 title: "Monte Carlo analysis of Bitcoin"
-author: "Lukas Läderach"
-output: html_notebook
+author: "Lukas LÃ¤derach"
+output:
+  html_document:
+    df_print: paged
 ---
 # Abstract
 This document describes the process of modeling a bitcoin monte carlo chart.
@@ -10,16 +12,16 @@ This document describes the process of modeling a bitcoin monte carlo chart.
 # Prerequisites
 To follow along this notebook make sure the following R-Packages are installed globally.
 
-```{r}
+```{r echo=FALSE}
 # Quandl - Get millions of financial and economic datasets from hundreds of publishers directly into R.
-install.packages("Quandl")
+#install.packages("Quandl")
 # ggplot2 is a plotting system for R, based on the grammar of graphics.
-install.packages("ggplot2")
+#install.packages("ggplot2")
 ```
 
 Once those packages are installed import them into your current workspace and set your Quandl API-Key (You have to create an account at [Quandl](https://www.quandl.com/sign-up-modal?defaultModal=showSignUp)).
 
-```{r}
+```{r echo=FALSE}
 library(Quandl)
 library(ggplot2)
 
@@ -30,15 +32,17 @@ Once everthing is set up correctly you should be able retrieve financial data vi
 
 For example the following statement will retrieve all the BTC/USD starting from 2017-12-31 to the very recent.
 
-```{r}
-data <- Quandl("BITFINEX/BTCUSD", start_date="2017-12-31")
+```{r echo=FALSE}
+startDate = "2015-12-31"
+
+data <- Quandl("BITFINEX/BTCUSD", start_date=startDate)
 head(data)
 ```
 
 To generate a plot visualizing the closing price according to it's date (column labeled *Last*) we can specify which columns to retrieve via the column_index parameter (0 is always the *Date* column). To specifiy multiple columns we can also create a vector e.g. *c(4,6)* - this would return a table containing the *Date*, *Last* and *Ask* columns only.
 
-```{r}
-data <- Quandl("BITFINEX/BTCUSD", start_date="2011-12-31", column_index=4)
+```{r echo=FALSE}
+data <- Quandl("BITFINEX/BTCUSD", start_date=startDate, column_index=c("Last"))
 gg <- ggplot(data, aes(Date, Last)) +
   geom_line() +
   geom_smooth(method = "lm") +
@@ -61,15 +65,15 @@ plot(gg)
 Future Price = Today's Price * Continuous Growth over time + The volatility of People randomly trading over time
 ```
 
-```{R}
-gg = Quandl("BITFINEX/BTCUSD", start_date="2011-12-31", transform = "rdiff")
+```{R echo=FALSE}
+gg = Quandl("BITFINEX/BTCUSD", start_date=startDate, transform = "rdiff")
 lmtRets = gg$Last
 mu = mean(lmtRets) # also knwon as Drift
 sigma = sd(lmtRets)
 
 nSim = 1000
-nDays = 365
-S0 <- head(Quandl("BITFINEX/BTCUSD", start_date="2018-5-1"), n=1)$Last
+nDays = 150
+S0 <- first(data)$Last
 S = matrix(0,nrow=nDays,ncol=nSim)
 
 for (i in 1:nSim) {
@@ -82,12 +86,31 @@ for (i in 1:nSim) {
   }
   S[,i] = SVec
 }
-matplot(S, type='l',col=rgb(0,0,1,0.3), lty=1,ylab="", main="Simulation Price of Bitcoin")
 
+# Calculating our borders
+mean = mu * nDays
+sigmaPeak = sigma * sqrt(nDays)
+t = seq(from=0,to=1,length.out=nDays)
+meanBnd = vector(length = nDays)
+upBnd = vector(length = nDays)
+loBnd = vector(length = nDays)
+test = vector(length = nDays)
+for(i in 0:nDays) {
+  meanBnd[i] = S0*exp(((mean-sigmaPeak^2/2))*t[i])
+  upBnd[i] = S0*exp(((mean-sigmaPeak^2/2))*t[i] + (sigmaPeak * 2.5 * sqrt(t[i])))
+  loBnd[i] = S0*exp(((mean-sigmaPeak^2/2))*t[i] + (sigmaPeak * -2.5 * sqrt(t[i])))
+}
+
+matplot(S, type='l',col=1:100, lty=1,ylab="",ylim=c(0,80000), main="Simulated price of Bitcoin")
+  matlines(loBnd,lwd=3,col="red")
+  matlines(upBnd,lwd=3,col="red")
+  matlines(meanBnd,lwd=3,col="red")
+```
+
+## Lognormal Distribution
+```{R echo=FALSE}
 lnMean = S0*exp(mu*nDays)
 lnSD = S0*exp(mu*nDays)*sqrt(exp((sigma^2)*nDays)-1)
-cat(lnMean,mean(S[nDays,]))
-cat(lnSD,sd(S[nDays,]))
 
 meanOfLog = log(S0) + (mu-(sigma^2)/2)*nDays
 sdOfLog = sigma*sqrt(nDays)
@@ -95,11 +118,12 @@ priceGrid = seq(0,lnMean+6*lnSD,length=10000)
 theoreticalDens = dlnorm(priceGrid,meanOfLog,sdOfLog)
 empiricalDens = density(S[nDays,])
 
-plot(priceGrid,theoreticalDens,type='l',xlab='Prices',ylab='Density')
-lines(empiricalDens,col='blue')
+df <- data.frame(priceGrid, theoreticalDens)
+maxIndex = which(df$theoreticalDens == max(df$theoreticalDens))
+plot(priceGrid, theoreticalDens, type='l', col='red',xlab='Prices', ylab='Density')
+  lines(empiricalDens,col='blue')
+  abline(v = df$priceGrid[maxIndex], col='red')
 ```
-
-
 ## Drift
 
 # Methods
