@@ -1,6 +1,6 @@
 ---
 title: "Monte Carlo analysis of Bitcoin"
-author: "Lukas LÃ¤derach"
+author: "Lukas Läderach"
 output:
   html_document:
     df_print: paged
@@ -12,7 +12,7 @@ This document describes the process of modeling a bitcoin monte carlo chart.
 # Prerequisites
 To follow along this notebook make sure the following R-Packages are installed globally.
 
-```{r echo=FALSE}
+```{r}
 # Quandl - Get millions of financial and economic datasets from hundreds of publishers directly into R.
 #install.packages("Quandl")
 # ggplot2 is a plotting system for R, based on the grammar of graphics.
@@ -21,7 +21,7 @@ To follow along this notebook make sure the following R-Packages are installed g
 
 Once those packages are installed import them into your current workspace and set your Quandl API-Key (You have to create an account at [Quandl](https://www.quandl.com/sign-up-modal?defaultModal=showSignUp)).
 
-```{r echo=FALSE}
+```{r}
 library(Quandl)
 library(ggplot2)
 
@@ -30,19 +30,21 @@ Quandl.api_key("CYyznmeKqzV2GxrHZMxD")
 
 Once everthing is set up correctly you should be able retrieve financial data via Quandl.
 
-For example the following statement will retrieve all the BTC/USD starting from 2017-12-31 to the very recent.
+For example the following statement will retrieve all the BTC/USD starting from 2016-1-1 to the very recent.
 
-```{r echo=FALSE}
-startDate = "2015-12-31"
+```{r}
+startDate = "2016-1-1"
+asset = "BITFINEX/BTCUSD"
 
-data <- Quandl("BITFINEX/BTCUSD", start_date=startDate)
+#data <- Quandl("BITFINEX/BTCUSD", start_date=startDate)
+data <- Quandl(asset, start_date=startDate)
 head(data)
 ```
 
 To generate a plot visualizing the closing price according to it's date (column labeled *Last*) we can specify which columns to retrieve via the column_index parameter (0 is always the *Date* column). To specifiy multiple columns we can also create a vector e.g. *c(4,6)* - this would return a table containing the *Date*, *Last* and *Ask* columns only.
 
 ```{r echo=FALSE}
-data <- Quandl("BITFINEX/BTCUSD", start_date=startDate, column_index=c("Last"))
+data <- Quandl(asset, start_date=startDate, column_index=c("Last"))
 gg <- ggplot(data, aes(Date, Last)) +
   geom_line() +
   geom_smooth(method = "lm") +
@@ -61,12 +63,16 @@ plot(gg)
   * Deterministic Component, known as Drift
   * Stochastic Component, known as Random Shock
 
+Therefore we can predict possible future prices with the following formula
+
 ```
-Future Price = Today's Price * Continuous Growth over time + The volatility of People randomly trading over time
+Future Price = Today's Price * Continuous Growth over time + volatility of People randomly trading over time
 ```
 
-```{R echo=FALSE}
-gg = Quandl("BITFINEX/BTCUSD", start_date=startDate, transform = "rdiff")
+We can simulate those random walks, in the following example we create 1000 simulation with prices for the next 150 days.
+
+```{R}
+gg = Quandl(asset, start_date=startDate, transform = "rdiff")
 lmtRets = gg$Last
 mu = mean(lmtRets) # also knwon as Drift
 sigma = sd(lmtRets)
@@ -104,11 +110,11 @@ for(i in 0:nDays) {
 matplot(S, type='l',col=1:100, lty=1,ylab="",ylim=c(0,80000), main="Simulated price of Bitcoin")
   matlines(loBnd,lwd=3,col="red")
   matlines(upBnd,lwd=3,col="red")
-  matlines(meanBnd,lwd=3,col="red")
+  matlines(meanBnd,lwd=3,col="black")
 ```
 
 ## Lognormal Distribution
-```{R echo=FALSE}
+```{R}
 lnMean = S0*exp(mu*nDays)
 lnSD = S0*exp(mu*nDays)*sqrt(exp((sigma^2)*nDays)-1)
 
@@ -122,18 +128,27 @@ df <- data.frame(priceGrid, theoreticalDens)
 maxIndex = which(df$theoreticalDens == max(df$theoreticalDens))
 plot(priceGrid, theoreticalDens, type='l', col='red',xlab='Prices', ylab='Density')
   lines(empiricalDens,col='blue')
-  abline(v = df$priceGrid[maxIndex], col='red')
+  abline(v = df$priceGrid[maxIndex], col='green')
+```
+
+According to this the highest price probability is
+```{R echo=FALSE}
+cat(df$priceGrid[maxIndex])
 ```
 
 # Call option price
 ```{R}
-K = 200                           # Strike price
-rate = mu                         # Risk freee rate
-c_mc = mean(max(S)-K)*exp(-rate)  # Call price Monte Carlo
-
+K = S0*1.1                                # Strike price
+cat("Strike price:", K)
+rate = mu                                   # Risk freee rate
+c_mc = mean(max(S[nDays,]-K, 0))*exp(-rate)    # Call price Monte Carlo
+cat("call price monte carlo", c_mc)
 ```
 
-
-# Methods
-
-# Results
+# Call price according to Black-Scholes
+```{R}
+d1 = (log(S0/K) + (rate+sigma^2/2))/sigma
+d2 = (log(S0/K) + (rate-sigma^2/2))/sigma
+c_bs = S0*pnorm(d1)-K*pnorm(d2)*exp(-rate)
+cat("c_bs:", c_bs)
+```
