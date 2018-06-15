@@ -124,7 +124,15 @@ plot(priceGrid, theoreticalDens, type='l', col='red',xlab='Prices', ylab='Densit
   lines(empiricalDens,col='blue')
   abline(v = df$priceGrid[maxIndex], col='red')
 ```
-## Drift
+
+# Call option price
+```{R}
+K = 200                           # Strike price
+rate = mu                         # Risk freee rate
+c_mc = mean(max(S)-K)*exp(-rate)  # Call price Monte Carlo
+
+```
+
 
 # Methods
 
